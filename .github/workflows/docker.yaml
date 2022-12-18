@@ -38,6 +38,7 @@ jobs:
             type=raw,value=latest
             type=sha
             type=semver,pattern={{raw}}
+            type=raw,value={{date 'YYYYMMDDHHmmss'}}
       - name: Build and push Docker image
         uses: docker/build-push-action@v2.10.0
         with:
