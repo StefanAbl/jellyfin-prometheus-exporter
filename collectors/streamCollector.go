@@ -17,11 +17,20 @@ type StreamCollector struct {
 }
 
 var (
-	numberOfStreams = prometheus.NewDesc("streams_total", "The total number of streams", nil, nil)
+	numberOfStreams = prometheus.NewDesc("jellyfin_active_streams_count", "The total number of streams", nil, nil)
 	bandwidthTotal  = prometheus.NewDesc(
-		"streams_bandwidth_bits", "The total bandwidth currently being streamed", nil,
+		"jellyfin_streams_bandwidth_bits", "The total bandwidth currently being streamed", nil,
 		nil,
 	)
+	numberOfTranscodedStreams = prometheus.NewDesc(
+		"jellyfin_active_streams_transcode_count",
+		"The number of streams which are currently being transcoded", nil, nil,
+	)
+	numberOfDirectStreams = prometheus.NewDesc(
+		"jellyfin_active_streams_direct_count",
+		"The number of streams which are currently being direct streams", nil, nil,
+	)
+	items = prometheus.NewDesc("jellyfin_items_count", "Count of Media Items label denotes type", []string{"type"}, nil)
 )
 
 func NewStreamCollector(url string, token string) *StreamCollector {
@@ -44,6 +53,47 @@ func (s *StreamCollector) Collect(metrics chan<- prometheus.Metric) {
 	metrics <- prometheus.MustNewConstMetric(
 		bandwidthTotal, prometheus.GaugeValue, s.getBandwidthTotal(&sessions),
 	)
+	transcoded, direct := s.getTranscodedStreams(&sessions)
+	metrics <- prometheus.MustNewConstMetric(
+		numberOfTranscodedStreams, prometheus.GaugeValue,
+		transcoded,
+	)
+	metrics <- prometheus.MustNewConstMetric(
+		numberOfDirectStreams, prometheus.GaugeValue,
+		direct,
+	)
+	itemCounts := s.getItemCounts()
+	for k, v := range itemCounts {
+		value, _ := v.Float64()
+		metrics <- prometheus.MustNewConstMetric(items, prometheus.GaugeValue, value, k)
+	}
+}
+
+func (s StreamCollector) getItemCounts() data.ItemCounts {
+	res, err := s.call("Items/Counts", "GET")
+	if err != nil {
+		fmt.Println(err)
+	}
+	var itemCounts data.ItemCounts
+	if err := json.Unmarshal(res, &itemCounts); err != nil { // Parse []byte to go struct pointer
+		fmt.Println("Can not unmarshal JSON", err.Error())
+	}
+	return itemCounts
+}
+
+func (s StreamCollector) getTranscodedStreams(sessions *data.Sessions) (float64, float64) {
+	transcoded, direct := 0, 0
+	for _, session := range *sessions {
+		if session.PlayState.IsPaused == false && session.NowPlayingItem.Name != "" {
+			if session.TranscodingInfo.TranscodeReasons != nil && !session.TranscodingInfo.IsVideoDirect {
+				transcoded++
+			} else {
+				direct++
+			}
+
+		}
+	}
+	return float64(transcoded), float64(direct)
 }
 
 func (s StreamCollector) getBandwidthTotal(sessions *data.Sessions) float64 {
