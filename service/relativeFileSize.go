@@ -31,11 +31,16 @@ func (s *RelativeFileSizeService) computeRelativeFileSizes() []RelFileSize {
 	for item, _ := iter.Next(); item != nil; item, _ = iter.Next() {
 		for _, source := range item.MediaSources {
 			var width, height int
+			var codec string
 			for _, stream := range source.MediaStreams {
 				if stream.Type == "Video" {
 					width = stream.Width
 					height = stream.Height
+					codec = stream.Codec
 				}
+			}
+			if codec == "" {
+				break
 			}
 			length := source.RunTimeTicks / (10000 * 1000)
 			compressionRatio := float64(source.Size) / float64(length*width*height)
@@ -46,7 +51,7 @@ func (s *RelativeFileSizeService) computeRelativeFileSizes() []RelFileSize {
 			relSizes = append(
 				relSizes, RelFileSize{
 					Name: item.Name, Path: source.Path, Resolution: resolution, SizeBytes: source.Size,
-					LengthSeconds: length, RelSize: compressionRatio,
+					LengthSeconds: length, RelSize: compressionRatio, Codec: codec,
 				},
 			)
 		}
@@ -61,4 +66,5 @@ type RelFileSize struct {
 	SizeBytes     int     `json:"size_bytes"`
 	LengthSeconds int     `json:"length_seconds"`
 	RelSize       float64 `json:"rel_size"`
+	Codec         string  `json:"codec"`
 }
