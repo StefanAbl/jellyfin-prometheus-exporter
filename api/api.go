@@ -47,16 +47,20 @@ func (i *MediaItemsIterator) Next() (*data.MediaItem, error) {
 		res, err := i.api.call(url, "GET")
 
 		if err != nil {
-			fmt.Errorf("got error %s", err.Error())
+			fmt.Println(fmt.Errorf("got error %s", err.Error()))
 		}
 		var ir data.ItemResponse
 		if err := json.Unmarshal(res, &ir); err != nil { // Parse []byte to go struct pointer
 			fmt.Println("Can not unmarshal JSON", err.Error())
+			if err.Error() != "unexpected end of JSON input" {
+				return nil, err
+			}
+		} else {
+			if ir.Items == nil {
+				return nil, nil
+			}
+			i.currentItems = ir.Items
 		}
-		if ir.Items == nil {
-			return nil, nil
-		}
-		i.currentItems = ir.Items
 	}
 	i.counter = i.counter + 1
 	if (i.counter-1)%i.step >= len(i.currentItems) {
@@ -71,7 +75,7 @@ func (s *JellyfinApi) GetMediaItems(includeItemTypes string) *MediaItemsIterator
 		"Items?"+
 			"StartIndex=%d"+
 			"&Limit=%d"+
-			"&Fields=PrimaryImageAspectRatio,SortName,Path,SongCount,ChildCount,MediaSources"+
+			"&Fields=Path,MediaSources"+
 			"&ImageTypeLimit=0"+
 			"&SortBy=SortName"+
 			"&SortOrder=Ascending"+
