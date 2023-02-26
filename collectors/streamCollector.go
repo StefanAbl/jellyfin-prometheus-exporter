@@ -12,8 +12,11 @@ type StreamCollector struct {
 }
 
 var (
-	numberOfStreams = prometheus.NewDesc("jellyfin_active_streams_count", "The total number of streams", nil, nil)
-	bandwidthTotal  = prometheus.NewDesc(
+	numberOfStreams = prometheus.NewDesc(
+		"jellyfin_active_streams_count", "The total number of streams",
+		[]string{"user"}, nil,
+	)
+	bandwidthTotal = prometheus.NewDesc(
 		"jellyfin_streams_bandwidth_bits", "The total bandwidth currently being streamed", nil,
 		nil,
 	)
@@ -41,9 +44,7 @@ func (s *StreamCollector) Describe(ch chan<- *prometheus.Desc) {
 
 func (s *StreamCollector) Collect(metrics chan<- prometheus.Metric) {
 	sessions := s.api.GetSessions()
-	metrics <- prometheus.MustNewConstMetric(
-		numberOfStreams, prometheus.GaugeValue, s.getNumberOfActiveSessions(&sessions),
-	)
+	s.getNumberOfActiveSessions(&sessions, metrics)
 	metrics <- prometheus.MustNewConstMetric(
 		bandwidthTotal, prometheus.GaugeValue, s.getBandwidthTotal(&sessions),
 	)
@@ -94,12 +95,16 @@ func (s StreamCollector) getBandwidthTotal(sessions *data.Sessions) float64 {
 	return total
 }
 
-func (s StreamCollector) getNumberOfActiveSessions(sessions *data.Sessions) float64 {
-	number := 0
+func (s StreamCollector) getNumberOfActiveSessions(sessions *data.Sessions, metrics chan<- prometheus.Metric) {
+	var sessionsPerUser = make(map[string]int)
 	for _, session := range *sessions {
 		if session.PlayState.IsPaused == false && session.NowPlayingItem.Name != "" {
-			number++
+			sessionsPerUser[session.UserName]++
 		}
 	}
-	return float64(number)
+	for user, i := range sessionsPerUser {
+		metrics <- prometheus.MustNewConstMetric(
+			numberOfStreams, prometheus.GaugeValue, float64(i), user,
+		)
+	}
 }
