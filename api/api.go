@@ -138,7 +138,7 @@ func (s *JellyfinApi) GetSessions() data.Sessions {
 
 func (s JellyfinApi) call(path, method string) ([]byte, error) {
 	client := &http.Client{
-		Timeout: time.Second * 10,
+		Timeout: time.Second * 60,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
