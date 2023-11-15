@@ -74,7 +74,7 @@ func computeRelSizes(ch chan RelFileSize, wg *sync.WaitGroup, item *data.MediaIt
 		}
 		ch <- RelFileSize{
 			Name: item.Name, Path: source.Path, Resolution: resolution, SizeBytes: source.Size,
-			LengthSeconds: length, RelSize: compressionRatio, Codec: codec,
+			LengthSeconds: length, RelSize: compressionRatio, Codec: codec, SeriesName: item.SeriesName,
 		}
 
 	}
@@ -82,6 +82,7 @@ func computeRelSizes(ch chan RelFileSize, wg *sync.WaitGroup, item *data.MediaIt
 
 type RelFileSize struct {
 	Name          string  `json:"name"`
+	SeriesName    string  `json:"series_name"`
 	Path          string  `json:"path"`
 	Resolution    string  `json:"resolution"`
 	SizeBytes     int     `json:"size_bytes"`
